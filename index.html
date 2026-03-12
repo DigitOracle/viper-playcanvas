@@ -16,6 +16,20 @@
     #legend span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
     #pipeline-label { position: fixed; bottom: 20px; right: 20px; pointer-events: none; text-align: right; }
     #pipeline-label p { font-family: sans-serif; font-size: 9px; color: #2563EB; letter-spacing: 0.1em; margin-bottom: 3px; text-transform: uppercase; }
+    #tooltip {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(13,17,23,0.92);
+      border: 1px solid #2563EB;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-family: sans-serif;
+      display: none;
+      z-index: 100;
+    }
+    #tooltip h2 { font-size: 11px; font-weight: 600; color: #F8FAFC; letter-spacing: 0.1em; text-transform: uppercase; }
+    #tooltip p { font-size: 10px; color: #94A3B8; margin-top: 3px; }
+    #tooltip .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
   </style>
   <script type="importmap">
   { "imports": { "playcanvas": "https://cdn.jsdelivr.net/npm/playcanvas/+esm" } }
@@ -44,28 +58,27 @@
     <p>AI Processing</p>
     <p>DigitOracle® Output</p>
   </div>
+  <div id="tooltip"></div>
   <script type="module">
     import * as pc from 'playcanvas';
 
     const canvas = document.getElementById('app');
-    const app = new pc.Application(canvas, {});
+    const tooltip = document.getElementById('tooltip');
+    const app = new pc.Application(canvas, { mouse: new pc.Mouse(canvas) });
     app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
     app.setCanvasResolution(pc.RESOLUTION_AUTO);
     window.addEventListener('resize', () => app.resizeCanvas());
 
-    // Camera
     const camera = new pc.Entity('camera');
     camera.addComponent('camera', { clearColor: new pc.Color(0.05, 0.067, 0.09) });
     app.root.addChild(camera);
 
-    // Lights
     const light = new pc.Entity('light');
     light.addComponent('light', { color: new pc.Color(0.8, 0.85, 1), intensity: 1.2 });
     light.setEulerAngles(45, 30, 0);
     app.root.addChild(light);
     app.scene.ambientLight = new pc.Color(0.08, 0.1, 0.15);
 
-    // Ground
     const groundMat = new pc.StandardMaterial();
     groundMat.diffuse = new pc.Color(0.06, 0.09, 0.13);
     groundMat.emissive = new pc.Color(0.02, 0.04, 0.08);
@@ -75,7 +88,6 @@
     ground.setLocalScale(24, 1, 24);
     app.root.addChild(ground);
 
-    // Grid
     const lineMat = new pc.StandardMaterial();
     lineMat.diffuse = new pc.Color(0.1, 0.25, 0.6);
     lineMat.emissive = new pc.Color(0.03, 0.08, 0.2);
@@ -87,7 +99,6 @@
       v.setPosition(i, 0.01, 0); v.setLocalScale(0.02, 0.01, 24); app.root.addChild(v);
     }
 
-    // Building
     const buildMat = new pc.StandardMaterial();
     buildMat.diffuse = new pc.Color(0.1, 0.15, 0.22);
     buildMat.emissive = new pc.Color(0.04, 0.06, 0.1);
@@ -103,7 +114,6 @@
     makeBlock(4.5, 0.5, 2.5, 3, 1, 2);
     makeBlock(0, 1.75, -0.5, 2.5, 2, 2.5);
 
-    // 14 pipeline ring layers above building — stacked horizontal rings
     const pipelineColors = [
       [0.15,0.39,0.92],[0.06,0.73,0.51],[0.96,0.62,0.04],[0.94,0.27,0.27],
       [0.55,0.36,0.96],[0.02,0.71,0.84],[0.98,0.45,0.09],[0.93,0.28,0.60],
@@ -116,9 +126,7 @@
       const mat = new pc.StandardMaterial();
       mat.diffuse = new pc.Color(...c);
       mat.emissive = new pc.Color(c[0]*0.3, c[1]*0.3, c[2]*0.3);
-      mat.opacity = 0.35;
-      mat.blendType = pc.BLEND_NORMAL;
-      mat.update();
+      mat.opacity = 0.35; mat.blendType = pc.BLEND_NORMAL; mat.update();
       const ring = new pc.Entity();
       ring.addComponent('render', { type: 'cylinder', material: mat });
       const y = 3.5 + i * 0.55;
@@ -128,23 +136,27 @@
       pipelineRings.push({ entity: ring, baseY: y, index: i });
     }
 
-    // Sensor nodes
     const scopes = [
-      { color: [0.15,0.39,0.92], count: 42 },
-      { color: [0.06,0.73,0.51], count: 38 },
-      { color: [0.96,0.62,0.04], count: 35 },
-      { color: [0.94,0.27,0.27], count: 28 },
-      { color: [0.55,0.36,0.96], count: 32 },
-      { color: [0.02,0.71,0.84], count: 40 },
-      { color: [0.98,0.45,0.09], count: 36 },
-      { color: [0.93,0.28,0.60], count: 30 },
-      { color: [0.52,0.80,0.09], count: 23 },
+      { name: 'Energy',     hex: '#2563EB', count: 42, sensors: 42, coverage: '100%', status: 'Nominal' },
+      { name: 'Air Quality',hex: '#10B981', count: 38, sensors: 38, coverage: '96%',  status: 'Nominal' },
+      { name: 'Structural', hex: '#F59E0B', count: 35, sensors: 35, coverage: '98%',  status: 'Alert'   },
+      { name: 'Fire Safety',hex: '#EF4444', count: 28, sensors: 28, coverage: '100%', status: 'Nominal' },
+      { name: 'Water',      hex: '#8B5CF6', count: 32, sensors: 32, coverage: '94%',  status: 'Nominal' },
+      { name: 'Occupancy',  hex: '#06B6D4', count: 40, sensors: 40, coverage: '100%', status: 'Nominal' },
+      { name: 'Security',   hex: '#F97316', count: 36, sensors: 36, coverage: '97%',  status: 'Nominal' },
+      { name: 'Lighting',   hex: '#EC4899', count: 30, sensors: 30, coverage: '99%',  status: 'Nominal' },
+      { name: 'HVAC',       hex: '#84CC16', count: 23, sensors: 23, coverage: '95%',  status: 'Nominal' },
     ];
+
     const sensorNodes = [];
     scopes.forEach(scope => {
+      const c = scope.hex;
+      const r = parseInt(c.slice(1,3),16)/255;
+      const g = parseInt(c.slice(3,5),16)/255;
+      const b = parseInt(c.slice(5,7),16)/255;
       const mat = new pc.StandardMaterial();
-      mat.diffuse = new pc.Color(...scope.color);
-      mat.emissive = new pc.Color(scope.color[0]*0.4, scope.color[1]*0.4, scope.color[2]*0.4);
+      mat.diffuse = new pc.Color(r,g,b);
+      mat.emissive = new pc.Color(r*0.4,g*0.4,b*0.4);
       mat.update();
       for (let i = 0; i < scope.count; i++) {
         const x = (Math.random()-0.5)*20;
@@ -155,53 +167,92 @@
         node.setPosition(x, y, z);
         node.setLocalScale(0.18,0.18,0.18);
         app.root.addChild(node);
-        sensorNodes.push({ entity: node, baseY: y, baseX: x, baseZ: z, phase: Math.random()*Math.PI*2, speed: 0.5+Math.random()*0.8, color: scope.color });
+        sensorNodes.push({ entity: node, baseY: y, baseX: x, baseZ: z, phase: Math.random()*Math.PI*2, speed: 0.5+Math.random()*0.8, scope, r, g, b });
       }
     });
 
-    // Data pulse particles — rise from sensors up through pipeline
     const pulses = [];
     function spawnPulse() {
-      const sensor = sensorNodes[Math.floor(Math.random()*sensorNodes.length)];
-      const c = sensor.color;
+      const s = sensorNodes[Math.floor(Math.random()*sensorNodes.length)];
       const mat = new pc.StandardMaterial();
-      mat.diffuse = new pc.Color(...c);
-      mat.emissive = new pc.Color(c[0]*0.8, c[1]*0.8, c[2]*0.8);
+      mat.diffuse = new pc.Color(s.r,s.g,s.b);
+      mat.emissive = new pc.Color(s.r*0.8,s.g*0.8,s.b*0.8);
       mat.update();
       const e = new pc.Entity();
       e.addComponent('render', { type: 'sphere', material: mat });
       e.setLocalScale(0.12,0.12,0.12);
-      e.setPosition(sensor.baseX, sensor.baseY, sensor.baseZ);
+      e.setPosition(s.baseX, s.baseY, s.baseZ);
       app.root.addChild(e);
-      pulses.push({ entity: e, x: sensor.baseX, z: sensor.baseZ, y: sensor.baseY, targetY: 11.5, speed: 1.5+Math.random()*2 });
+      pulses.push({ entity: e, x: s.baseX, z: s.baseZ, y: s.baseY, targetY: 11.5, speed: 1.5+Math.random()*2 });
     }
     for (let i = 0; i < 30; i++) spawnPulse();
 
-    // Camera orbit
+    // Mouse position tracking
+    let mouseX = 0, mouseY = 0;
+    canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
     let angle = 0;
+    let orbitPaused = false;
+
     app.on('update', dt => {
-      angle += dt * 0.1;
+      if (!orbitPaused) angle += dt * 0.1;
       const r = 22;
       camera.setPosition(Math.sin(angle)*r, 14, Math.cos(angle)*r);
       camera.lookAt(new pc.Vec3(0, 3, 0));
 
       const t = Date.now()*0.001;
 
-      // Pulse sensors
+      // Raycast from mouse for hover
+      const cameraComp = camera.camera;
+      const ray = new pc.Ray();
+      cameraComp.screenToWorld(mouseX, mouseY, cameraComp.farClip, ray.direction);
+      ray.origin.copy(camera.getPosition());
+      ray.direction.sub(ray.origin).normalize();
+
+      let hoveredScope = null;
+      let closestDist = Infinity;
+
+      sensorNodes.forEach(s => {
+        const pos = s.entity.getPosition();
+        // Simple sphere-ray intersection (approximate)
+        const toSphere = new pc.Vec3().sub2(pos, ray.origin);
+        const proj = toSphere.dot(ray.direction);
+        if (proj < 0) return;
+        const closest = new pc.Vec3().copy(ray.direction).scale(proj).add(ray.origin);
+        const dist = closest.distance(pos);
+        if (dist < 0.4 && proj < closestDist) {
+          closestDist = proj;
+          hoveredScope = s.scope;
+        }
+      });
+
+      if (hoveredScope) {
+        orbitPaused = true;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (mouseX + 14) + 'px';
+        tooltip.style.top = (mouseY - 10) + 'px';
+        tooltip.innerHTML = `
+          <h2><span class="dot" style="background:${hoveredScope.hex}"></span>${hoveredScope.name}</h2>
+          <p>Sensors: ${hoveredScope.sensors} &nbsp;|&nbsp; Coverage: ${hoveredScope.coverage}</p>
+          <p>Status: <span style="color:${hoveredScope.status==='Alert'?'#EF4444':'#10B981'}">${hoveredScope.status}</span></p>
+        `;
+      } else {
+        orbitPaused = false;
+        tooltip.style.display = 'none';
+      }
+
       sensorNodes.forEach(s => {
         const pulse = 1+0.2*Math.sin(t*s.speed+s.phase);
         s.entity.setLocalScale(0.18*pulse,0.18*pulse,0.18*pulse);
         s.entity.setPosition(s.baseX, s.baseY+0.05*Math.sin(t*s.speed+s.phase), s.baseZ);
       });
 
-      // Animate pipeline rings — gentle pulse
       pipelineRings.forEach(r => {
         const pulse = 1+0.08*Math.sin(t*0.8+r.index*0.4);
         const base = 6-r.index*0.25;
         r.entity.setLocalScale(base*pulse, 0.04, base*pulse);
       });
 
-      // Move data pulses upward
       for (let i = pulses.length-1; i >= 0; i--) {
         const p = pulses[i];
         p.y += p.speed * dt;
