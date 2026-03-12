@@ -4,10 +4,45 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>VIPER® Sensor Intelligence | DigitAlchemy®</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0D1117; }
+    canvas { display: block; }
+    #label { position: fixed; top: 24px; left: 50%; transform: translateX(-50%); color: #2563EB; font-family: sans-serif; font-size: 13px; letter-spacing: 0.2em; text-transform: uppercase; }
+  </style>
+  <script type="importmap">
+  { "imports": { "playcanvas": "https://cdn.jsdelivr.net/npm/playcanvas/+esm" } }
+  </script>
 </head>
 <body>
-  <p style="color:white;background:#0D1117;margin:0;padding:40px;font-family:sans-serif;">
-    VIPER® PlayCanvas Demo — scaffold ready.
-  </p>
+  <canvas id="app"></canvas>
+  <div id="label">VIPER® Sensor Intelligence — PlayCanvas Ready</div>
+  <script type="module">
+    import * as pc from 'playcanvas';
+
+    const canvas = document.getElementById('app');
+    const app = new pc.Application(canvas, {});
+    app.setCanvasFillMode(pc.FILLMODE_FILL_WINDOW);
+    app.setCanvasResolution(pc.RESOLUTION_AUTO);
+    window.addEventListener('resize', () => app.resizeCanvas());
+
+    const camera = new pc.Entity('camera');
+    camera.addComponent('camera', { clearColor: new pc.Color(0.05, 0.07, 0.09) });
+    camera.setPosition(0, 0, 5);
+    app.root.addChild(camera);
+
+    const light = new pc.Entity('light');
+    light.addComponent('light');
+    light.setEulerAngles(45, 30, 0);
+    app.root.addChild(light);
+
+    const box = new pc.Entity('box');
+    box.addComponent('render', { type: 'box' });
+    box.setPosition(0, 0, 0);
+    app.root.addChild(box);
+
+    app.on('update', dt => box.rotate(10 * dt, 20 * dt, 0));
+    app.start();
+  </script>
 </body>
 </html>
