@@ -14,6 +14,8 @@
     #legend { position: fixed; bottom: 20px; left: 20px; pointer-events: none; }
     #legend div { font-family: sans-serif; font-size: 10px; letter-spacing: 0.08em; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
     #legend span { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+    #pipeline-label { position: fixed; bottom: 20px; right: 20px; pointer-events: none; text-align: right; }
+    #pipeline-label p { font-family: sans-serif; font-size: 9px; color: #2563EB; letter-spacing: 0.1em; margin-bottom: 3px; text-transform: uppercase; }
   </style>
   <script type="importmap">
   { "imports": { "playcanvas": "https://cdn.jsdelivr.net/npm/playcanvas/+esm" } }
@@ -23,7 +25,7 @@
   <canvas id="app"></canvas>
   <div id="ui">
     <h1>VIPER® Sensor Intelligence</h1>
-    <p>304 Sensors · 9 Scopes · DigitAlchemy®</p>
+    <p>304 Sensors · 9 Scopes · 14-Layer Pipeline · DigitAlchemy®</p>
   </div>
   <div id="legend">
     <div><span style="background:#2563EB"></span><span style="color:#94A3B8">Energy</span></div>
@@ -35,6 +37,12 @@
     <div><span style="background:#F97316"></span><span style="color:#94A3B8">Security</span></div>
     <div><span style="background:#EC4899"></span><span style="color:#94A3B8">Lighting</span></div>
     <div><span style="background:#84CC16"></span><span style="color:#94A3B8">HVAC</span></div>
+  </div>
+  <div id="pipeline-label">
+    <p>▲ 14-Layer Pipeline</p>
+    <p>Data Aggregation</p>
+    <p>AI Processing</p>
+    <p>DigitOracle® Output</p>
   </div>
   <script type="module">
     import * as pc from 'playcanvas';
@@ -48,8 +56,6 @@
     // Camera
     const camera = new pc.Entity('camera');
     camera.addComponent('camera', { clearColor: new pc.Color(0.05, 0.067, 0.09) });
-    camera.setPosition(0, 14, 18);
-    camera.lookAt(new pc.Vec3(0, 0, 0));
     app.root.addChild(camera);
 
     // Lights
@@ -64,12 +70,12 @@
     groundMat.diffuse = new pc.Color(0.06, 0.09, 0.13);
     groundMat.emissive = new pc.Color(0.02, 0.04, 0.08);
     groundMat.update();
-    const ground = new pc.Entity('ground');
+    const ground = new pc.Entity();
     ground.addComponent('render', { type: 'plane', material: groundMat });
     ground.setLocalScale(24, 1, 24);
     app.root.addChild(ground);
 
-    // Grid lines
+    // Grid
     const lineMat = new pc.StandardMaterial();
     lineMat.diffuse = new pc.Color(0.1, 0.25, 0.6);
     lineMat.emissive = new pc.Color(0.03, 0.08, 0.2);
@@ -90,73 +96,122 @@
       const e = new pc.Entity();
       e.addComponent('render', { type: 'box', material: buildMat });
       e.setPosition(x, y, z); e.setLocalScale(sx, sy, sz);
-      app.root.addChild(e); return e;
+      app.root.addChild(e);
     }
     makeBlock(0, 0.75, 0, 8, 1.5, 5);
     makeBlock(-4.5, 0.5, 2.5, 3, 1, 2);
     makeBlock(4.5, 0.5, 2.5, 3, 1, 2);
     makeBlock(0, 1.75, -0.5, 2.5, 2, 2.5);
 
-    // 9 scope zones with colors
-    const scopes = [
-      { name: 'Energy',     color: [0.15, 0.39, 0.92], count: 42, zone: [-8, 8] },
-      { name: 'Air',        color: [0.06, 0.73, 0.51], count: 38, zone: [-6, 6] },
-      { name: 'Structural', color: [0.96, 0.62, 0.04], count: 35, zone: [-4, 4] },
-      { name: 'Fire',       color: [0.94, 0.27, 0.27], count: 28, zone: [-7, 7] },
-      { name: 'Water',      color: [0.55, 0.36, 0.96], count: 32, zone: [-5, 5] },
-      { name: 'Occupancy',  color: [0.02, 0.71, 0.84], count: 40, zone: [-9, 9] },
-      { name: 'Security',   color: [0.98, 0.45, 0.09], count: 36, zone: [-6, 6] },
-      { name: 'Lighting',   color: [0.93, 0.28, 0.60], count: 30, zone: [-8, 8] },
-      { name: 'HVAC',       color: [0.52, 0.80, 0.09], count: 23, zone: [-5, 5] },
+    // 14 pipeline ring layers above building — stacked horizontal rings
+    const pipelineColors = [
+      [0.15,0.39,0.92],[0.06,0.73,0.51],[0.96,0.62,0.04],[0.94,0.27,0.27],
+      [0.55,0.36,0.96],[0.02,0.71,0.84],[0.98,0.45,0.09],[0.93,0.28,0.60],
+      [0.52,0.80,0.09],[0.15,0.39,0.92],[0.06,0.73,0.51],[0.96,0.62,0.04],
+      [0.94,0.27,0.27],[0.55,0.36,0.96]
     ];
+    const pipelineRings = [];
+    for (let i = 0; i < 14; i++) {
+      const c = pipelineColors[i];
+      const mat = new pc.StandardMaterial();
+      mat.diffuse = new pc.Color(...c);
+      mat.emissive = new pc.Color(c[0]*0.3, c[1]*0.3, c[2]*0.3);
+      mat.opacity = 0.35;
+      mat.blendType = pc.BLEND_NORMAL;
+      mat.update();
+      const ring = new pc.Entity();
+      ring.addComponent('render', { type: 'cylinder', material: mat });
+      const y = 3.5 + i * 0.55;
+      ring.setPosition(0, y, 0);
+      ring.setLocalScale(6 - i * 0.25, 0.04, 6 - i * 0.25);
+      app.root.addChild(ring);
+      pipelineRings.push({ entity: ring, baseY: y, index: i });
+    }
 
+    // Sensor nodes
+    const scopes = [
+      { color: [0.15,0.39,0.92], count: 42 },
+      { color: [0.06,0.73,0.51], count: 38 },
+      { color: [0.96,0.62,0.04], count: 35 },
+      { color: [0.94,0.27,0.27], count: 28 },
+      { color: [0.55,0.36,0.96], count: 32 },
+      { color: [0.02,0.71,0.84], count: 40 },
+      { color: [0.98,0.45,0.09], count: 36 },
+      { color: [0.93,0.28,0.60], count: 30 },
+      { color: [0.52,0.80,0.09], count: 23 },
+    ];
     const sensorNodes = [];
-
     scopes.forEach(scope => {
       const mat = new pc.StandardMaterial();
       mat.diffuse = new pc.Color(...scope.color);
-      mat.emissive = new pc.Color(scope.color[0] * 0.4, scope.color[1] * 0.4, scope.color[2] * 0.4);
+      mat.emissive = new pc.Color(scope.color[0]*0.4, scope.color[1]*0.4, scope.color[2]*0.4);
       mat.update();
-
       for (let i = 0; i < scope.count; i++) {
-        const x = (Math.random() - 0.5) * 20;
-        const z = (Math.random() - 0.5) * 20;
-        const y = 0.08 + Math.random() * 2.5;
-
+        const x = (Math.random()-0.5)*20;
+        const z = (Math.random()-0.5)*20;
+        const y = 0.08 + Math.random()*2.5;
         const node = new pc.Entity();
         node.addComponent('render', { type: 'sphere', material: mat });
         node.setPosition(x, y, z);
-        node.setLocalScale(0.18, 0.18, 0.18);
+        node.setLocalScale(0.18,0.18,0.18);
         app.root.addChild(node);
-
-        sensorNodes.push({
-          entity: node,
-          baseY: y,
-          phase: Math.random() * Math.PI * 2,
-          speed: 0.5 + Math.random() * 0.8
-        });
+        sensorNodes.push({ entity: node, baseY: y, baseX: x, baseZ: z, phase: Math.random()*Math.PI*2, speed: 0.5+Math.random()*0.8, color: scope.color });
       }
     });
+
+    // Data pulse particles — rise from sensors up through pipeline
+    const pulses = [];
+    function spawnPulse() {
+      const sensor = sensorNodes[Math.floor(Math.random()*sensorNodes.length)];
+      const c = sensor.color;
+      const mat = new pc.StandardMaterial();
+      mat.diffuse = new pc.Color(...c);
+      mat.emissive = new pc.Color(c[0]*0.8, c[1]*0.8, c[2]*0.8);
+      mat.update();
+      const e = new pc.Entity();
+      e.addComponent('render', { type: 'sphere', material: mat });
+      e.setLocalScale(0.12,0.12,0.12);
+      e.setPosition(sensor.baseX, sensor.baseY, sensor.baseZ);
+      app.root.addChild(e);
+      pulses.push({ entity: e, x: sensor.baseX, z: sensor.baseZ, y: sensor.baseY, targetY: 11.5, speed: 1.5+Math.random()*2 });
+    }
+    for (let i = 0; i < 30; i++) spawnPulse();
 
     // Camera orbit
     let angle = 0;
     app.on('update', dt => {
-      angle += dt * 0.12;
+      angle += dt * 0.1;
       const r = 22;
-      camera.setPosition(Math.sin(angle) * r, 14, Math.cos(angle) * r);
-      camera.lookAt(new pc.Vec3(0, 1, 0));
+      camera.setPosition(Math.sin(angle)*r, 14, Math.cos(angle)*r);
+      camera.lookAt(new pc.Vec3(0, 3, 0));
+
+      const t = Date.now()*0.001;
 
       // Pulse sensors
-      const t = Date.now() * 0.001;
       sensorNodes.forEach(s => {
-        const pulse = 1 + 0.2 * Math.sin(t * s.speed + s.phase);
-        s.entity.setLocalScale(0.18 * pulse, 0.18 * pulse, 0.18 * pulse);
-        s.entity.setPosition(
-          s.entity.getPosition().x,
-          s.baseY + 0.05 * Math.sin(t * s.speed + s.phase),
-          s.entity.getPosition().z
-        );
+        const pulse = 1+0.2*Math.sin(t*s.speed+s.phase);
+        s.entity.setLocalScale(0.18*pulse,0.18*pulse,0.18*pulse);
+        s.entity.setPosition(s.baseX, s.baseY+0.05*Math.sin(t*s.speed+s.phase), s.baseZ);
       });
+
+      // Animate pipeline rings — gentle pulse
+      pipelineRings.forEach(r => {
+        const pulse = 1+0.08*Math.sin(t*0.8+r.index*0.4);
+        const base = 6-r.index*0.25;
+        r.entity.setLocalScale(base*pulse, 0.04, base*pulse);
+      });
+
+      // Move data pulses upward
+      for (let i = pulses.length-1; i >= 0; i--) {
+        const p = pulses[i];
+        p.y += p.speed * dt;
+        p.entity.setPosition(p.x, p.y, p.z);
+        if (p.y >= p.targetY) {
+          app.root.removeChild(p.entity);
+          pulses.splice(i, 1);
+          spawnPulse();
+        }
+      }
     });
 
     app.start();
